@@ -1,0 +1,27 @@
+[Unit]
+Description=Servicio de monitoreo de archivo para encendido/apagado de LED        
+#esto es un mensaje que se muestra si alguien usa systemctl status
+
+After=network.target                                                              
+#indica que empieza cuando esten cargados los modulos de red, es solo para darle lugar en la secuencia de inicio
+
+[Service]
+ExecStart=/home/aaron/Escritorio/progra/proyecto/monitoreo_led.sh         
+#indica donde esta el archivo que queremos convertir en servicio
+
+Restart=always                               
+#reinicia el script se detiene
+
+RestartSec=5                                 
+#al detenerse, espera 5 seg antes de reiniciar, por seguridad
+
+User=aaron                                   
+#esto ejecuta el servicio con los permisos del usuario, cambiar esto por el usuario de la raspberry
+
+StandardOutput=journal                       
+StandardError=journal                       
+ #estas dos redirigen todas las salidas al journal, ejecutar journalctl -u monitoreo_led.service -f
+
+[Install]
+WantedBy=multi-user.target
+#indica que el servicio debe iniciarse automaticamente durante el arranque,
