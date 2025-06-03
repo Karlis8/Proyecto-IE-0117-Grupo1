@@ -3,6 +3,8 @@ Para habilitar el servicio:
 primero, dentro  del archivo monitoreo_led.sh, en la linea 5, después de FILE debe estar la ruta al escritorio
 después, dentro del archivo monitoeo_led.service, cambiar el usuario en linea18, por un usuario que tenga acceso a GPIO
 
+el archivo monitoreo_led.sh debe tener permisos de ejecución, pueden ser otorgados con chmod +x monitoreo_led.sh
+
 Después de realizar estos cambios, se debe mover(o copiar) el archivo monitoreo_led/sh a /usr/local/bin, puede ser con el comando 
 sudo cp monitoreo_led.sh /usr/local/bin/monitoreo_led.sh para copiar o sudo mv monitoreo_led.sh /usr/local/bin/monitoreo_led.sh para mover
 
