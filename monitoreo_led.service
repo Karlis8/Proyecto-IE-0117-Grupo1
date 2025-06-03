@@ -6,7 +6,7 @@ After=network.target
 #indica que empieza cuando esten cargados los modulos de red, es solo para darle lugar en la secuencia de inicio
 
 [Service]
-ExecStart=/home/aaron/Escritorio/progra/proyecto/monitoreo_led.sh         
+ExecStart=/usr/local/bin/monitoreo_led.sh         
 #indica donde esta el archivo que queremos convertir en servicio
 
 Restart=always                               
