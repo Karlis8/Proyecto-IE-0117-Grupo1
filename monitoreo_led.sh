@@ -13,11 +13,12 @@ else
     echo "$FILE creado"
 fi
 
-inotifywait -m -e open,close_write $FILE| while read path action file; do #esto crea un bucle que esta revisando coninuamente si el archivo es abierto o cerrado
-        if [ "$action" == "OPEN" ]; then #si el archivo esta abierto...
+while true; do
+EVENTO=$(inotifywait -e open,close_write,close_nowrite,delete_self --format '%e' "$FILE" 2>/dev/null) #esto crea un bucle que esta revisando coninuamente si el archivo es abierto o cerrado
+         if [[ "$EVENTO" == *"OPEN"* ]]; then #si el archivo esta abierto...
             echo "Archivo abierto" #aqui deberia invocar el comando que diga al kernel que encienda el led
 
-        elif [ "$action" == "CLOSE_WRITE,CLOSE" ] || [ "$action" == "CLOSE_WRITE" ]; then #si el archivo fue cerrado despues de modificar, o solo fue cerrado...
+        elif [[ "$EVENTO" == *"CLOSE_WRITE"* || "$EVENTO" == *"CLOSE_NOWRITE"* || "$EVENTO" == *"DELETE_SELF"* ]]; then #si el archivo fue cerrado despues de modificar, o solo fue cerrado...
             echo "Archivo cerrado" #aqui deberia invocar el comando que diga al kernel que apague el led
 
         fi #cierra el if
