@@ -13,8 +13,8 @@ else
     echo "$FILE creado"
 fi
 
-while true; do
-EVENTO=$(inotifywait -e open,close_write,close_nowrite,delete_self --format '%e' "$FILE" 2>/dev/null) #esto crea un bucle que esta revisando coninuamente si el archivo es abierto o cerrado
+while true; do #esto crea un bucle que esta revisando coninuamente si el archivo es abierto o cerrado
+EVENTO=$(inotifywait -e open,close_write,close_nowrite,delete_self --format '%e' "$FILE" 2>/dev/null) 
          if [[ "$EVENTO" == *"OPEN"* ]]; then #si el archivo esta abierto...
             echo "Archivo abierto" #aqui deberia invocar el comando que diga al kernel que encienda el led
 
