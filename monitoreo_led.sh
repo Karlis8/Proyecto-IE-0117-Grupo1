@@ -15,28 +15,46 @@ fi
 
 while true; do #esto crea un bucle que esta revisando coninuamente si el archivo es abierto o cerrado
 
-EVENTO=$(inotifywait  --format '%e' "$FILE" 2>/dev/null) 
+
+
+EVENTO=$(inotifywait -t 1  --format '%e' "$FILE" 2>/dev/null) #cada segundo verifica si hay un proceso
+
+if [ -z "$EVENTO" ]; then #si evento está vacío, verifica si hay un pid guardado
+if [ -n "$PID" ]; then #si hay un pid guardado, verifica si el proceso está activo
+    if ! ps -p "$PID" > /dev/null; then #si el proceso no está activo, apaga el led
+        echo "El proceso $PID no está activo, apagar LED"
+        PID=""
+
+#aqui deberia invocar el comando que diga al kernel que apague el led
+
+    fi
+fi
+else #si hay un evento, lo imprime y lo procesa
 echo "$EVENTO"
          if [[ "$EVENTO" == *"OPEN"* ]]; then #si el archivo esta abierto...
-            PID=$(lsof "$FILE" | awk 'NR==2 {print $2}') #esto guarda el pid del proceso que abrio el archivo
+            PID=$(lsof "$FILE" | awk 'NR==2 {print $2}') #esto guarda el pid del proceso
+            echo "Archivo abierto" 
             
-            echo "Archivo abierto" #aqui deberia invocar el comando que diga al kernel que encienda el led
+            #aqui deberia invocar el comando que diga al kernel que encienda el led
 
-        elif [[ "$EVENTO" == *"ACCESS"* ]]; then #si el archivo solo fue cerrado...
-            echo "Archivo abierto" #aqui deberia invocar el comando que diga al kernel que apague el led
+        elif [[ "$EVENTO" == *"ACCESS"* ]]; then #si el archivo fue abierto...
+            echo "Archivo abierto"
+            
+             #aqui deberia invocar el comando que diga al kernel que encienda el led
 
         elif [[ "$EVENTO" == *"CLOSE_WRITE"* ]]; then #si el archivo fue cerrado despues de modificar...
-            echo "Archivo cerrado" #aqui deberia invocar el comando que diga al kernel que apague el led
-
+            echo "Archivo cerrado" 
+            PID=""
+            #aqui deberia invocar el comando que diga al kernel que apague el led
 
         elif [[ "$EVENTO" == *"ATTRIB"* ]]; then #si el archivo fue cerrado despues de modificar...
-            echo "Archivo guardado" #aqui deberia invocar el comando que diga al kernel que apague el led
-
-        
-
-        else
-
-             echo "Evento no reconocido" #aqui deberia invocar el comando que diga al kernel que apague el led
+            echo "Archivo guardado" 
+            PID=""
+    
+            #aqui deberia invocar el comando que diga al kernel que apague el led
+    
 
         fi #cierra el if
+
+fi
 done
