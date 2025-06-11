@@ -6,6 +6,7 @@ trap 'terminar' SIGINT SIGTERM #esto llama la funcion terminar al detener el scr
 terminar() { #esta funcion termina el subproceso verificar_proceso
     echo " Saliendo..."
     kill "$PID_VERIFICADOR" 2>/dev/null
+    kill "$PID_BPFTRACE" 2>/dev/null
     exit
 }
 
@@ -48,6 +49,18 @@ PID="" # esto va a almacenar el pid del proceso que abra el archivo
 verificar_proceso & #esto llama a la funcion verificar proceso a trabajar en segundo plano
 PID_VERIFICADOR=$! #esto guarda el pid del subproceso
 
+exec 3< <(  #esto es un subproceso en segundo plano que registra el proceso que abre el archivo
+    
+    sudo bpftrace -e "
+    tracepoint:syscalls:sys_enter_openat
+    /str(args->filename) == \"$FILE\"/
+    {
+        printf(\"%d\\n\", pid);
+    }" 2>/dev/null
+)
+PID_BPFTRACE=$!
+
+
 while true; do #esto crea un bucle que esta revisando coninuamente si el archivo es abierto o cerrado
 EVENTO=$(inotifywait --format '%e' --event open,close_write,attrib "$FILE" 2>/dev/null) 
 
@@ -57,7 +70,12 @@ EVENTO=$(inotifywait --format '%e' --event open,close_write,attrib "$FILE" 2>/de
     echo "$EVENTO"
     
     if [[ "$EVENTO" == *"OPEN"* ]]; then #si el archivo fue abierto...
-        PID=$(lsof -t "$FILE" 2>/dev/null | head -n 1) #toma el pproceso que lo abre
+        while read -t 1 -u 3 line; do #toma el proceso que lo abre
+            if [[ "$line" =~ ^[0-9]+$ ]]; then
+                PID="$line"
+                break
+            fi
+        done
         if [ -n "$PID" ]; then
             echo "Archivo abierto con el proceso $PID" #si hay proceso enciende el led
             encender_led
@@ -74,12 +92,6 @@ EVENTO=$(inotifywait --format '%e' --event open,close_write,attrib "$FILE" 2>/de
         apagar_led
 
     fi #cierra el if
-done
-
-
-    fi #cierra el if
-
-fi
 done
 
 
