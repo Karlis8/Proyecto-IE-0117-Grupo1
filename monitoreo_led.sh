@@ -11,7 +11,7 @@ terminar() { #esta funcion termina el subproceso verificar_proceso
 }
 
 FILE=/home/vboxuser/Escritorio/monitoreo_led.txt #esta ruta depende de cada equipo, reemplazar por la ruta al escritorio de cada equipo
-
+EDITOR="mousepad"
 #lo primero es saber si existe el archivo de monitoreo, esto se va a repetir en bucle. por lo que deberia crear el archivo solo la primera iteracion 
 if [ -f "$FILE" ]; then
     echo "archivo encontrado" #esto no deberia aparecer en la version final
@@ -32,19 +32,27 @@ apagar_led(){
     #aqui deberia invocar el comando que diga al kernel que apague el led
 }
 
-verificar_proceso(){
+verificar_proceso() {
     while true; do
-        if [ -n "$PID" ]; then #si hay un pid guardado, verifica si el proceso está activo
-            if ! ps -p "$PID" > /dev/null; then #si el proceso no está activo, apaga el led
-                echo "El proceso $PID no está activo, apagar LED"
-                PID="" #esto limpia el pid
+        # Busca el PID del editor con ese archivo abierto
+        local pid=$(pgrep -af "$EDITOR" | grep -F "$FILE" | awk '{print $1}' | head -n 1)
+        
+        if [[ -n "$pid" ]]; then
+            if [[ "$EDITOR_PID" != "$pid" ]]; then
+                echo "Editor $EDITOR abierto con $FILE (PID $pid)"
+                EDITOR_PID="$pid"
+                encender_led
+            fi
+        else
+            if [[ -n "$EDITOR_PID" ]]; then
+                echo "Editor $EDITOR cerrado o no con $FILE"
+                EDITOR_PID=""
                 apagar_led
             fi
         fi
-    sleep 1
+        sleep 1
     done
 }
-
 PID="" # esto va a almacenar el pid del proceso que abra el archivo
 verificar_proceso & #esto llama a la funcion verificar proceso a trabajar en segundo plano
 PID_VERIFICADOR=$! #esto guarda el pid del subproceso
@@ -76,11 +84,17 @@ EVENTO=$(inotifywait --format '%e' --event open,close_write,attrib "$FILE" 2>/de
                 break
             fi
         done
-        if [ -n "$PID" ]; then
-            echo "Archivo abierto con el proceso $PID" #si hay proceso enciende el led
-            encender_led
-        else
-            echo "open sin proceso activo ignorado" #si ya no hay proceso, entonces es un access al cerrar 
+        if [ -n "$PID" ]; then 
+            editor=$(ps -p "$PID" -o comm=)
+            if [[ "$editor" == "$EDITOR" ]]; then
+                if [ "$EDITOR_PID" != "$PID" ]; then
+                    echo "Archivo abierto con $EDITOR (PID $PID)"
+                    EDITOR_PID="$PID"
+                    encender_led
+                fi
+            else
+                echo "Archivo abierto por otro proceso ($editor), ignorado"
+            fi
         fi
        
     elif [[ "$EVENTO" == *"CLOSE_WRITE"* ]]; then #si el archivo fue cerrado despues de modificar...
@@ -93,5 +107,4 @@ EVENTO=$(inotifywait --format '%e' --event open,close_write,attrib "$FILE" 2>/de
 
     fi #cierra el if
 done
-
 
