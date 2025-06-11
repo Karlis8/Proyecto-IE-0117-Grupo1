@@ -15,7 +15,7 @@ Restart=always
 RestartSec=5                                 
 #al detenerse, espera 5 seg antes de reiniciar, por seguridad
 
-User=aaron                                   
+User=root                                   
 #esto ejecuta el servicio con los permisos del usuario, cambiar esto por el usuario de la raspberry
 
 StandardOutput=journal                       
