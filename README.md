@@ -2,6 +2,7 @@
 Para habilitar el servicio:
 
 es necesaria la instalación de itnotify-tools, puede ser instalada con el siguiente comando sudo apt-get -y install inotify-tools
+es necesario tener pgrep instalado, puede ser instalado con el comando apt install grep
 
 primero, dentro  del archivo monitoreo_led.sh, en la linea 5, después de FILE debe estar la ruta al escritorio
 después, dentro del archivo monitoeo_led.service, cambiar el usuario en linea18, por un usuario que tenga acceso a GPIO
