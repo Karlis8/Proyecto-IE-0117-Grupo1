@@ -2,11 +2,7 @@
  
 #este archivo debe tener permisos de ejecucion (chmod +x monitoreo_led.sh)
 
-FILE=/home/vboxuser/Escritorio/monitoreo_led.txt #esta ruta depende de cada equipo, reemplazar por la ruta al escritorio de cada equipo
-EDITOR="mousepad" #todo el proyecto esta pensado para funcionar con mousepad
-
-command -v inotifywait >/dev/null || { echo "inotifywait no está instalado"; exit 1; } #esto avisa si falta alguna dependencia
-command -v pgrep >/dev/null || { echo "pgrep no está instalado"; exit 1; }
+#funciones:
 
 trap 'terminar' SIGINT SIGTERM #esto llama la funcion terminar al detener el script
 terminar() { #esta funcion termina el subproceso verificar_proceso
@@ -23,17 +19,6 @@ encender_led(){
 apagar_led(){
     echo "led apagado"
     #aqui deberia invocar el comando que diga al kernel que apague el led
-}
-
-parpadeo(){
-    tempo=0.3
-    apagar_led
-    sleep $tempo
-    encender_led
-    sleep $tempo
-    apagar_led
-    sleep $tempo
-    encender_led
 }
 
 verificar_proceso() {
@@ -59,6 +44,12 @@ verificar_proceso() {
     done
 }
 
+#aqui empieza a ejecutar
+
+FILE=/home/vboxuser/Escritorio/monitoreo_led.txt #esta ruta depende de cada equipo, reemplazar por la ruta al escritorio de cada equipo
+EDITOR="mousepad" #todo el proyecto esta pensado para funcionar con mousepad
+
+command -v pgrep >/dev/null || { echo "pgrep no está instalado"; exit 1; }
 
 #lo primero es saber si existe el archivo de monitoreo, esto se va a repetir en bucle. por lo que deberia crear el archivo solo la primera iteracion 
 if [ -f "$FILE" ]; then
@@ -69,17 +60,10 @@ else
     echo "$FILE creado"
 fi
 
-verificar_proceso & #esto llama a la funcion verificar proceso a trabajar en segundo plano
-PID_VERIFICADOR=$! #esto guarda el pid del subproceso
-
-
-while true; do #esto crea un bucle que esta revisando coninuamente si el archivo es abierto o cerrado
-EVENTO=$(inotifywait --format '%e' --event open,close_write,attrib "$FILE" 2>/dev/null) 
- #si hay un evento, lo imprime y lo procesa  
-    if [[ "$EVENTO" == *"ATTRIB"* ]]; then #si el archivo fue cerrado despues de modificar...
-        echo "-Archivo guardado" 
-        parpadeo
-
-    fi #cierra el if
+while true; do
+ verificar_proceso
 done
+
+
+
 
