@@ -17,12 +17,12 @@ terminar() { #esta funcion termina el subproceso verificar_proceso
 
 encender_led(){
   echo "led encendido"
-  #aqui deberia invocar el comando que diga al kernel que encienda el led
+  echo on | sudo tee /dev/led_control
 }
 
 apagar_led(){
     echo "led apagado"
-    #aqui deberia invocar el comando que diga al kernel que apague el led
+    echo off | sudo tee /dev/led_control
 }
 
 parpadeo(){
