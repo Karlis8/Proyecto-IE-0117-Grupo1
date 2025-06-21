@@ -2,22 +2,22 @@
 #include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/init.h>
-#include <linux/gpio.h>             // Control GPIO
+#include <linux/gpio.h>             // API GPIO antigua
 #include <linux/uaccess.h>         // copy_from_user
 #include <linux/device.h>          // device class
-#include <linux/cdev.h>
 
 #define DEVICE_NAME "led_control"
 #define CLASS_NAME "led"
 
-#define LED_GPIO 27
+// Cambiamos GPIO27 por su mapeo correspondiente en el kernel
+#define LED_GPIO 539
 
 static int majorNumber;
 static struct class*  ledClass  = NULL;
 static struct device* ledDevice = NULL;
 
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset) {
-    char command[4] = {0}; // soporta hasta "on\n" o "off\n"
+    char command[4] = {0};
 
     if (len > 3)
         len = 3;
@@ -43,30 +43,31 @@ static struct file_operations fops = {
 };
 
 static int __init led_init(void) {
-    int result;
+    printk(KERN_INFO "led_module: Iniciando módulo GPIO539...\n");
 
-    printk(KERN_INFO "led_module: Iniciando módulo...\n");
-
-    // Reservar GPIO27
     if (!gpio_is_valid(LED_GPIO)) {
         printk(KERN_ALERT "led_module: GPIO %d no es válido\n", LED_GPIO);
         return -ENODEV;
     }
 
-    gpio_request(LED_GPIO, "sysfs");
-    gpio_direction_output(LED_GPIO, 0); // LED apagado al iniciar
-    gpio_export(LED_GPIO, false);
+    if (gpio_request(LED_GPIO, "led_gpio") < 0) {
+        printk(KERN_ALERT "led_module: No se pudo solicitar GPIO %d\n", LED_GPIO);
+        return -EBUSY;
+    }
 
-    // Registrar dispositivo de carácter
+    gpio_direction_output(LED_GPIO, 0); // LED apagado al iniciar
+
     majorNumber = register_chrdev(0, DEVICE_NAME, &fops);
     if (majorNumber < 0) {
+        gpio_free(LED_GPIO);
         printk(KERN_ALERT "led_module: Falló al registrar major number\n");
         return majorNumber;
     }
 
-    ledClass = class_create(THIS_MODULE, CLASS_NAME);
+    ledClass = class_create(CLASS_NAME);
     if (IS_ERR(ledClass)) {
         unregister_chrdev(majorNumber, DEVICE_NAME);
+        gpio_free(LED_GPIO);
         printk(KERN_ALERT "led_module: Falló al crear clase\n");
         return PTR_ERR(ledClass);
     }
@@ -75,17 +76,17 @@ static int __init led_init(void) {
     if (IS_ERR(ledDevice)) {
         class_destroy(ledClass);
         unregister_chrdev(majorNumber, DEVICE_NAME);
+        gpio_free(LED_GPIO);
         printk(KERN_ALERT "led_module: Falló al crear el dispositivo\n");
         return PTR_ERR(ledDevice);
     }
 
-    printk(KERN_INFO "led_module: Dispositivo creado correctamente: /dev/%s\n", DEVICE_NAME);
+    printk(KERN_INFO "led_module: Dispositivo listo en /dev/%s\n", DEVICE_NAME);
     return 0;
 }
 
 static void __exit led_exit(void) {
     gpio_set_value(LED_GPIO, 0);
-    gpio_unexport(LED_GPIO);
     gpio_free(LED_GPIO);
 
     device_destroy(ledClass, MKDEV(majorNumber, 0));
@@ -101,6 +102,5 @@ module_exit(led_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("EquipoMaravilla");
-MODULE_DESCRIPTION("Módulo kernel simple para controlar LED en GPIO27");
-MODULE_VERSION("2.0");
-
+MODULE_DESCRIPTION("Módulo kernel simple para controlar LED en GPIO27 (remapeado como GPIO539)");
+MODULE_VERSION("3.0");
