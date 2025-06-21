@@ -1,60 +1,73 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/init.h>
 #include <linux/fs.h>
-#include <linux/uaccess.h>
-#include <linux/gpio.h>
-#include <linux/device.h>
+#include <linux/init.h>
+#include <linux/gpio.h>             // Control GPIO
+#include <linux/uaccess.h>         // copy_from_user
+#include <linux/device.h>          // device class
+#include <linux/cdev.h>
 
-#define GPIO_NUM 27
 #define DEVICE_NAME "led_control"
 #define CLASS_NAME "led"
 
+#define LED_GPIO 27
+
 static int majorNumber;
-static struct class* ledClass = NULL;
+static struct class*  ledClass  = NULL;
 static struct device* ledDevice = NULL;
 
-static int dev_open(struct inode *inodep, struct file *filep) {
-    printk(KERN_INFO "LED: Encendiendo LED (GPIO %d)\n", GPIO_NUM);
-    gpio_set_value(GPIO_NUM, 1);
-    return 0;
-}
+static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset) {
+    char command[4] = {0}; // soporta hasta "on\n" o "off\n"
 
-static int dev_release(struct inode *inodep, struct file *filep) {
-    printk(KERN_INFO "LED: Apagando LED (GPIO %d)\n", GPIO_NUM);
-    gpio_set_value(GPIO_NUM, 0);
-    return 0;
+    if (len > 3)
+        len = 3;
+
+    if (copy_from_user(command, buffer, len)) {
+        return -EFAULT;
+    }
+
+    if (strncmp(command, "on", 2) == 0) {
+        gpio_set_value(LED_GPIO, 1);
+    } else if (strncmp(command, "off", 3) == 0) {
+        gpio_set_value(LED_GPIO, 0);
+    } else {
+        printk(KERN_INFO "led_module: Comando inválido. Use 'on' o 'off'.\n");
+    }
+
+    return len;
 }
 
 static struct file_operations fops = {
-    .open = dev_open,
-    .release = dev_release,
+    .owner = THIS_MODULE,
+    .write = dev_write,
 };
 
 static int __init led_init(void) {
-    printk(KERN_INFO "LED: Inicializando módulo...\n");
+    int result;
 
-    // Solicita el GPIO
-    if (!gpio_is_valid(GPIO_NUM)) {
-        printk(KERN_ALERT "LED: GPIO %d no es válido.\n", GPIO_NUM);
+    printk(KERN_INFO "led_module: Iniciando módulo...\n");
+
+    // Reservar GPIO27
+    if (!gpio_is_valid(LED_GPIO)) {
+        printk(KERN_ALERT "led_module: GPIO %d no es válido\n", LED_GPIO);
         return -ENODEV;
     }
 
-    gpio_request(GPIO_NUM, "sysfs");
-    gpio_direction_output(GPIO_NUM, 0); // Apagado inicialmente
-    gpio_export(GPIO_NUM, false);       // Si falla, comentar esta línea
+    gpio_request(LED_GPIO, "sysfs");
+    gpio_direction_output(LED_GPIO, 0); // LED apagado al iniciar
+    gpio_export(LED_GPIO, false);
 
-    // Registrar dispositivo de caracteres
+    // Registrar dispositivo de carácter
     majorNumber = register_chrdev(0, DEVICE_NAME, &fops);
     if (majorNumber < 0) {
-        printk(KERN_ALERT "LED: Falló registro de número mayor\n");
+        printk(KERN_ALERT "led_module: Falló al registrar major number\n");
         return majorNumber;
     }
 
-    ledClass = class_create(CLASS_NAME);
+    ledClass = class_create(THIS_MODULE, CLASS_NAME);
     if (IS_ERR(ledClass)) {
         unregister_chrdev(majorNumber, DEVICE_NAME);
-        printk(KERN_ALERT "LED: Falló creación de clase\n");
+        printk(KERN_ALERT "led_module: Falló al crear clase\n");
         return PTR_ERR(ledClass);
     }
 
@@ -62,31 +75,32 @@ static int __init led_init(void) {
     if (IS_ERR(ledDevice)) {
         class_destroy(ledClass);
         unregister_chrdev(majorNumber, DEVICE_NAME);
-        printk(KERN_ALERT "LED: Falló creación del dispositivo\n");
+        printk(KERN_ALERT "led_module: Falló al crear el dispositivo\n");
         return PTR_ERR(ledDevice);
     }
 
-    printk(KERN_INFO "LED: Módulo cargado correctamente con device /dev/%s\n", DEVICE_NAME);
+    printk(KERN_INFO "led_module: Dispositivo creado correctamente: /dev/%s\n", DEVICE_NAME);
     return 0;
 }
 
 static void __exit led_exit(void) {
-    gpio_set_value(GPIO_NUM, 0);
-    gpio_unexport(GPIO_NUM); // Si falla, comentar esta línea
-    gpio_free(GPIO_NUM);
+    gpio_set_value(LED_GPIO, 0);
+    gpio_unexport(LED_GPIO);
+    gpio_free(LED_GPIO);
 
     device_destroy(ledClass, MKDEV(majorNumber, 0));
     class_unregister(ledClass);
     class_destroy(ledClass);
     unregister_chrdev(majorNumber, DEVICE_NAME);
 
-    printk(KERN_INFO "LED: Módulo descargado correctamente.\n");
+    printk(KERN_INFO "led_module: Módulo descargado.\n");
 }
 
 module_init(led_init);
 module_exit(led_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Karla Méndez");
-MODULE_DESCRIPTION("Módulo de kernel que enciende y apaga LED desde user space.");
-MODULE_VERSION("0.2");
+MODULE_AUTHOR("EquipoMaravilla");
+MODULE_DESCRIPTION("Módulo kernel simple para controlar LED en GPIO27");
+MODULE_VERSION("2.0");
+
